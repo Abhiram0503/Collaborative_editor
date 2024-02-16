@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+
+    <script src="/socket.io/socket.io.js"></script>
+
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+</head>
+<body>
+    <div id="head">
+        <input type="text" id="room_name">
+        <button id="enter">enter</button>
+    </div>
+    <div id="editor" style="padding-bottom: 50%;" hidden="hidden"></div>
+
+    <script>
+        var socket = io();
+
+        socket.on("connect", ()=>{
+                console.log("server connected")
+        })
+    </script>
+
+    <script>
+        var enter = document.getElementById("enter")
+        var room_name = document.getElementById("room_name")
+        var room_name_value = ""
+        enter.addEventListener("click",()=>{
+            if(room_name.value === ""){
+                alert("empty")
+            }
+            else{
+                document.getElementById("head").innerHTML = "<h1>room name: "+room_name.value+"</h1>"
+                document.getElementById("editor").style.display = "block"
+                console.log(room_name.value)
+                room_name_value = room_name.value
+                socket.emit("room_name",room_name.value)
+            }
+        })
+    </script>
+
+    <script>
+        var quill = new Quill('#editor', {
+        modules: {
+            toolbar: [
+            [{ size: ['huge', 2, false] }],
+            [{ font: [] }],
+            ['bold', 'italic', 'underline', 'size', 'image','code-block', 'code', 'link'],
+            [{ 'background': [] }]
+            ]
+        },
+        placeholder: 'Compose an epic...',
+        theme: 'snow'  // or 'bubble'
+        });
+    </script>
+
+    <script>
+        socket.on("sync", (socketID)=>{
+            var cont = quill.getContents()
+            socket.emit("inner", quill.getContents(),socketID)
+        })
+
+        socket.on("prev", (editor_content)=>{
+            console.log("hhh")
+            quill.setContents(editor_content)
+        })
+
+        quill.on("text-change", (delta, oldDelta, source)=>{
+            if(source !== "user") { return}
+            socket.emit("diff-client", delta,room_name_value)
+            // console.log(delta)
+        })
+
+        socket.on("diff-broadcast", (delta)=>{
+            // console.log(delta, "kkk")
+            quill.updateContents(delta)
+        })
+    </script>
+</body>
+</html>
